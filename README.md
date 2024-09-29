@@ -39,3 +39,61 @@ The model was fine-tuned on a custom dataset, which included user interactions a
 - **Pretrained On**: A diverse corpus including internet text, ensuring general understanding of various topics and languages.
 
 For more details on the fine-tuning process and implementation of this model, you can check out the notebook: https://www.kaggle.com/code/kyungwanwoo/dejavu
+
+**Example Use**:
+```python
+# Install necessary libraries
+!pip install transformers --quiet
+
+# Import libraries
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
+# Load the model and tokenizer
+model_name = '/kaggle/input/dejavu_pretrained'
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype=torch.float16,
+)
+
+# Move the model to GPU if available
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model.to(device)
+
+# Define the function to generate search recall suggestion
+def get_search_recall(user_context, model=model, tokenizer=tokenizer):
+    prompt = f"input: {user_context}\noutput:"
+    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=150,
+        no_repeat_ngram_size=2,
+    )
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return response.split('output:')[-1].strip()
+
+# Example usage
+user_context = """
+User Context:
+- Recent Activity: Looking for workout routines
+- People Interacted With: Gym trainer
+- Ongoing Task: Trying out a new fitness regime
+- Past Searches: Beginner workout plans, best fitness apps
+- Current Environment: Gym
+
+Question:
+Based on my recent activities and ongoing tasks, can you help me recall what I might have wanted to search for?
+"""
+
+print("User Context and Question:")
+print(user_context)
+print("\nGenerated Search Suggestion:")
+print(get_search_recall(user_context))
+
+"""
+Output:
+Considering your contextual cues, you might be looking for information on Full Body Workout Routine. Does this sound right?
+"""
+```
